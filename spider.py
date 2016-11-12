@@ -151,5 +151,9 @@ def run():
         os.mkdir(DIR)
         initNorImg(norImgPath)
         main()
-run()
+#run()
 #average 1page/4.8s
+def loop(stime=180):
+    while True:
+        run()
+        time.sleep(stime)
