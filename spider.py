@@ -7,8 +7,6 @@ import shutil
 import time
 import urllib2
 
-
-
 DIR = "./userImgs"
 
 norImgHref = "https://img3.doubanio.com/icon/user_normal.jpg"
@@ -18,11 +16,20 @@ norImgPath = DIR + '/' + norImg
 #topHref与 https://www.douban.com/group/beijingzufang/ 内容一致,可通过start=0 实现分页
 topHref = "https://www.douban.com/group/beijingzufang/discussion?start=0"
 
+#初始化默认用户头像
+def initNorImg(nimgp):
+    if not os.path.exists(nimgp):
+        downAndSave(norImgHref, nimgp)
+
 def dealUrl(url):
     headers ={"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/54.0.2840.71 Safari/537.36"}
     req = urllib2.Request(url, None, headers) 
-    rsp = urllib2.urlopen(req)
-    return rsp.read()
+    try:
+        rsp = urllib2.urlopen(req,timeout=10)
+        return rsp.read()
+    except urllib2.HTTPError, e:
+        raise Exception("http error " + str(e.code))
+        
 
 #url 正则匹配
 def checkUrlS(stringl, pattern):
@@ -50,15 +57,10 @@ def downAndSave(img_url, filename):
             with open(filename, "wb") as f:
                 f.write(img.read())
             status = True
-    except:
-        pass
+    except urllib2.HTTPError, e:
+        print "except HTTPError" + str(e.code)
     return status
 
-def initNorImg(nimgp):
-    if os.path.exists(nimgp):
-        pass
-    else:
-        downAndSave(norImgHref, nimgp)
 #重复时,cp&rename
 def cpNorImg(nimgp, uimg):
     shutil.copy(nimgp, uimg)
@@ -69,9 +71,7 @@ def downUserImg(filename, imghref):
         cpNorImg(norImgPath, filename)
     else:
         status = downAndSave(imghref, filename)
-        if status:
-            pass
-        else:
+        if not status:
             cpNorImg(norImgPath, filename)
 
 
@@ -107,10 +107,11 @@ def dealhref(sPath,hrefl):
         print "check if multi " + sPath
         print phref
 
-def main():
+#入口,处理topHref
+def dealIndex(href):
 #n=0
-    html = dealUrl(topHref)
-    soup = BS(html, 'lxml')
+    html = dealUrl(href)
+    soup = BS(html, 'html.parser')
     for i in soup.find_all('tr'):
         alist = i.find_all('a')
         status, hrefList = checkhref(alist)
@@ -131,7 +132,7 @@ def main():
                 dealhref(savePath, hrefList)
         else:
             pass
-        print ''
+
 #total time test
 def timedeco(func):
     def real_wrap(*args, **kwargs):
@@ -143,17 +144,17 @@ def timedeco(func):
 
 @timedeco
 def run():
-    if os.path.exists(DIR):
-        initNorImg(norImgPath)
-        main()
-        print "exist dir"
-    else:
+    if not os.path.exists(DIR): 
         os.mkdir(DIR)
-        initNorImg(norImgPath)
-        main()
+    initNorImg(norImgPath)
+    dealIndex(topHref)
+
 #run()
 #average 1page/4.8s
 def loop(stime=180):
     while True:
         run()
         time.sleep(stime)
+
+if __name__ == '__main__':
+    loop()
