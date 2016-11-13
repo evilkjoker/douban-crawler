@@ -1,7 +1,12 @@
 #!/usr/bin/python
 #-*- encoding:utf-8-*-
-from bs4 import BeautifulSoup as BS 
-import os 
+try:
+    from bs4 import BeautifulSoup as BS 
+except ImportError:
+    raise RuntimeError('bs4 is required, May use pip install it.')
+ 
+import os
+import sys 
 import re 
 import shutil
 import threading 
@@ -138,13 +143,18 @@ def run():
         os.mkdir(DIR)
     initNorImg(norImgPath)
     dealIndex(topHref)
+    #multiTDown 多线程处理图片下载
+    multiTDown(testD)
 
 #程序运行,循环,3min
-def loop(stime=180):
-    while True:
+def loop(looprun, stime=180):
+    if looprun:
+        while True:
+            run()
+            time.sleep(stime)
+    else:
         run()
-        multiTDown(testD)
-        time.sleep(stime)
+
 
 #由testD获得下载href和保存name
 #下载头像并保存,非正常请求时使用默认头像
@@ -176,7 +186,8 @@ def multiTDown(indict):
     print "downloads imgs total time %s" % (time.time() - startt)
 
 if __name__ == '__main__':
-    #run()
-    #multiTDown 多线程处理图片下载
-    #multiTDown(testD)
-    loop()
+    #间隔时间
+    delayTime = 180    
+    #循环执行
+    looprun = True
+    loop(looprun, delayTime)
