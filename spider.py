@@ -30,15 +30,13 @@ def initNorImg(nimgp):
 def dealUrl(url):
     headers ={"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/54.0.2840.71 Safari/537.36"}
     req = urllib2.Request(url, None, headers) 
-    status = False
-    content = ''
     try:
-        rsp = urllib2.urlopen(req,timeout=10)
+        rsp = urllib2.urlopen(url, timeout=5)
         content = rsp.read()
     except urllib2.HTTPError, e:
-        #raise Exception("http error " + str(e.code))
-        pass
-    return status, content
+    #    #raise Exception("http error " + str(e.code))
+        content = ''
+    return True, content
 
 #url 正则匹配
 def checkUrlS(stringl, pattern):
@@ -61,37 +59,14 @@ def checkhref(alist):
 def downAndSave(img_url, filename):
     try:
         img = urllib2.urlopen(img_url)
-        if img.headers.maintype == 'image':
-            with open(filename, "wb") as f:
-                f.write(img.read())
-            status = True
+        with open(filename, "wb") as f:
+            f.write(img.read())
     except urllib2.HTTPError, e:
         print "except HTTPError" + str(e.code)
 
 #重复时,cp&rename
 def cpNorImg(nimgp, uimg):
     shutil.copy(nimgp, uimg)
-
-#下载头像并保存,非正常请求时使用默认头像
-def downUserImg(filename, imghref):
-    if imghref == norImg:
-        cpNorImg(norImgPath, filename)
-    else:
-        try:
-            status, img = dealUrl(imghref)
-            if status:
-                with open(filename, "wb") as f:
-                    f.write(img)
-            else:
-                cpNorImg(norImgPath, filename)   
-        except urllib2.HTTPError, e:
-            pass
-        cpNorImg(norImgPath, filename)
-        #status = downAndSave(imghref, filename)
-        #if not status:
-        #    cpNorImg(norImgPath, filename)
-
-
 
 #不可以通过uhref获得用户id,访问文章内容获得头像href
 def mUImg(thref):
@@ -137,7 +112,7 @@ def dealIndex(href):
             #lastReplayTime = i.find_all('td')[-1].get_text()
             #用户名
             un = alist[1].get_text()
-            savePath = DIR + '/' + un + '.jpg'   
+            savePath = DIR + '/' + un.encode('utf-8') + '.jpg'   
             #check 
             if os.path.exists(savePath):
                 pass
@@ -168,27 +143,40 @@ def run():
 def loop(stime=180):
     while True:
         run()
+        multiTDown(testD)
         time.sleep(stime)
 
-#有testD获得下载href和保存name
+#由testD获得下载href和保存name
+#下载头像并保存,非正常请求时使用默认头像
 def newDown(nid):
-    path = testD.keys()[nid]
-    href = testD.values()[nid]
-    downUserImg(path, href) 
+    filename = testD.keys()[nid]
+    imghref = testD.values()[nid]
+    if imghref == norImg:
+        #print "same same " + imghref 
+        cpNorImg(norImgPath, filename)
+    else:
+        try:
+            img = urllib2.urlopen(imghref, timeout=2)
+            with open(filename, "wb") as f:
+                f.write(img.read())
+        except urllib2.HTTPError, e:
+            #pass
+            cpNorImg(norImgPath, filename)
 
-def multiTDown():
+def multiTDown(indict):
     startt = time.time()
     threads = []
-    for i in range(len(testD.keys())):
+    for i in range(len(indict.keys())):
         t = threading.Thread(target=newDown, args=(i,))
         threads.append(t)
-    for i in range(len(testD.keys())):
+    for i in range(len(indict.keys())):
         threads[i].start()
-    for i in range(len(testD.keys())):
+    for i in range(len(indict.keys())):
         threads[i].join()
     print "downloads imgs total time %s" % (time.time() - startt)
 
 if __name__ == '__main__':
-    run()
+    #run()
     #multiTDown 多线程处理图片下载
-    multiTDown()
+    #multiTDown(testD)
+    loop()

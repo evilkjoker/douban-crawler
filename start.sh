@@ -4,8 +4,8 @@
 #desc:build & start  docker container, save img to $SPATH 
 
 SPATH="userdata"
- 
-docker build -t dbscraw .
+
+docker build -t dbcraw .
 
 if [ "$?" -eq "0" ]
 then
@@ -13,7 +13,7 @@ then
     then 
         mkdir $SPATH
     fi 
-    docker run -itd --name db0  -v $(pwd)/userdata:/userImgs dbscraw /bin/bash 
+    docker run -itd --name db0  -v $(pwd)/userdata:/userImgs dbcraw
 else
     echo "There is somthing wrong, maybe run this script aragin"
 fi
