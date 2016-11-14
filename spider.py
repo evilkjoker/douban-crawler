@@ -56,8 +56,6 @@ def checkhref(alist):
     if len(hrefl) > 1: 
         status = checkUrlS(hrefl[0], "group/topic")  
         status = checkUrlS(hrefl[1], "people")  
-    else:
-        pass
     return status, hrefl
 
 #img下载
@@ -91,20 +89,40 @@ def sUImg(imghref):
     return imgh
 
 #处理a href属性      
-def dealhref(sPath,hrefl):
-    thref = hrefl[0]
-    phref = hrefl[1]
-    uidpat = '/people/[0-9]{5,12}/'
-    if checkUrlS(phref, uidpat):
-        imghref = sUImg(phref)
-    else:     
-        imghref = mUImg(thref)   
-        print "check if multi " + sPath
-    testD[sPath] = imghref
+class dealhref(threading.Thread):
+    def __init__(self, indict, id):
+        super(dealhref, self).__init__()
+        #save name/path
+        self.fn = indict.keys()[id]
+        #passage href
+        self.thref = indict[self.fn][0]
+        #user href
+        self.phref = indict[self.fn][1]
+        self.id = id
+    def get_imghref(self):
+        uidpat = '/people/[0-9]{5,12}/'
+        if checkUrlS(self.phref, uidpat):
+            self.imghref = sUImg(self.phref)
+        else:     
+            self.imghref = mUImg(self.thref)   
+    #由testD获得下载href和保存name
+    #下载头像并保存,非正常请求时使用默认头像
+    def run(self):
+        #st = time.time()
+        self.get_imghref()
+        if self.imghref == norImg:
+            cpNorImg(norImgPath, self.fn)
+        else:
+            try:
+                img = urllib2.urlopen(self.imghref, timeout=2)
+                with open(self.fn, "wb") as f:
+                    f.write(img.read())
+            except urllib2.HTTPError, e:
+                cpNorImg(norImgPath, self.fn)
+        #print "deal a img time : %s " % (time.time()-st)
 
 #入口,处理topHref
 def dealIndex(href):
-#n=0
     status, html = dealUrl(href)
     soup = BS(html, 'html.parser')
     for i in soup.find_all('tr'):
@@ -119,13 +137,8 @@ def dealIndex(href):
             un = alist[1].get_text()
             savePath = DIR + '/' + un.encode('utf-8') + '.jpg'   
             #check 
-            if os.path.exists(savePath):
-                pass
-                #print "exist user img"
-            else:
-                dealhref(savePath, hrefList)
-        else:
-            pass
+            if not os.path.exists(savePath):
+                testD[savePath] = hrefList
 
 #total time test
 def timedeco(func):
@@ -139,12 +152,19 @@ def timedeco(func):
 #程序运行,非循环
 @timedeco
 def run():
+    #st = time.time()
+    threads = []
     if not os.path.exists(DIR): 
         os.mkdir(DIR)
     initNorImg(norImgPath)
     dealIndex(topHref)
-    #multiTDown 多线程处理图片下载
-    multiTDown(testD)
+    #print "deal index time: %s" % (time.time()-st)
+    for i in range(len(testD)):
+        threads.append(dealhref(testD, i))
+    for i in threads:
+        i.start()
+    for i in threads:
+        i.join()
 
 #程序运行,循环,3min
 def loop(looprun, stime=180):
@@ -154,36 +174,6 @@ def loop(looprun, stime=180):
             time.sleep(stime)
     else:
         run()
-
-
-#由testD获得下载href和保存name
-#下载头像并保存,非正常请求时使用默认头像
-def newDown(nid):
-    filename = testD.keys()[nid]
-    imghref = testD.values()[nid]
-    if imghref == norImg:
-        #print "same same " + imghref 
-        cpNorImg(norImgPath, filename)
-    else:
-        try:
-            img = urllib2.urlopen(imghref, timeout=2)
-            with open(filename, "wb") as f:
-                f.write(img.read())
-        except urllib2.HTTPError, e:
-            #pass
-            cpNorImg(norImgPath, filename)
-
-def multiTDown(indict):
-    startt = time.time()
-    threads = []
-    for i in range(len(indict.keys())):
-        t = threading.Thread(target=newDown, args=(i,))
-        threads.append(t)
-    for i in range(len(indict.keys())):
-        threads[i].start()
-    for i in range(len(indict.keys())):
-        threads[i].join()
-    print "downloads imgs total time %s" % (time.time() - startt)
 
 if __name__ == '__main__':
     #间隔时间
